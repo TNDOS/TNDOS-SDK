@@ -38,7 +38,7 @@ setx TNDDOS_TOOLKIT  "D:\TNDOS-ToolsKit"
 
 ## 写一个 TNX 程序
 
-`​`​`c
+`​`​`
 /* myapp.c */
 #include "tndrt.h"
 
@@ -77,7 +77,7 @@ C:\>tnx MYAPP.TNX    只看信息，不执行
 
 ## 写一个驱动
 
-`​`​`c
+`​`​`
 /* mydrv.c */
 #include "drv.h"
 
