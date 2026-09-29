@@ -1,0 +1,8 @@
+build/
+obj/
+*.o
+*.elf
+*.TNX
+*.EFI
+.vs/
+.vscode/
