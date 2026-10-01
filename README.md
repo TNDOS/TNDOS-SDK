@@ -29,11 +29,9 @@ clone 这个仓库就能产出能在 TNDDOS 上跑的东西，不用碰 TNDOS-Sy
 | `TNDDOS_TOOLKIT` | `TNDOS-ToolsKit` 仓库根目录（里面有 `tnxpack.ps1`） | 是（`tnxpack.ps1` 在 PATH 上时可省） |
 
 ```powershell
-
 setx TNDDOS_LLVM_BIN "D:\LLVM\bin"
 setx TNDDOS_TOOLKIT  "D:\TNDOS-ToolsKit"
 # 设完重开终端
-
 ```
 
 ---
@@ -41,35 +39,81 @@ setx TNDDOS_TOOLKIT  "D:\TNDOS-ToolsKit"
 ## 写一个 TNX 程序
 
 ```c
-
 /* myapp.c */
 #include "tndrt.h"
 
 int tnx_main(void) {
-    tnd_puts("hello from myapp\r\n");
-    void *p = tnd_alloc(64);
-    if (p) { tnd_puts("kernel heap works\r\n"); tnd_free(p); }
+    TND_FIND f;
+    int fh;
+
+    /* argv 就是 DOS 的规矩：argv[0] 是程序名，argv[1..] 是参数 */
+    tnd_printf("myapp: %d argument(s)\n", tnd_argc() - 1);
+
+    /* 目录遍历 */
+    fh = tnd_findfirst("*.TNX", &f);
+    if (fh >= 0) {
+        do { tnd_printf("  %u  %s\n", f.Size, f.Name); }
+        while (tnd_findnext(fh, &f) == 0);
+        tnd_findclose(fh);
+    }
+
+    /* 读文件 */
+    {
+        char buf[512];
+        tnd_i64 n = tnd_readfile("AUTOEXEC.BAT", buf, sizeof(buf));
+        if (n > 0) tnd_printf("autoexec.bat: %d bytes\n", (int)n);
+    }
+
+    /* 内存 */
+    {
+        void *p = tnd_alloc(64);
+        if (p) { tnd_puts("kernel heap works\n"); tnd_free(p); }
+    }
     return 0;
 }
-
 ```
 
-`​`​`powershell
+```powershell
 .\tools\build-tnx.ps1 -Source myapp.c -Out build\MYAPP.TNX
-`​`​`
+```
 
 产出的 MYAPP.TNX 丢进 EFI System Partition，在 TNDDOS 里**直接敲名字就行**（DOS 的规矩）：
 
 ```
-
 C:\>MYAPP.TNX
 C:\>MYAPP            扩展名可选
 C:\>tnx MYAPP.TNX    只看信息，不执行
 
 查找顺序：当前目录优先，然后依次查 PATH 的每一项。
 找不到就是 Bad command or file name。
+```
+
+### API v2 一览
+
+`tndrt.h` 把内核 API 包成了下面这些。**它全部建立在 DOS 的句柄模型上** ——
+0/1/2 是标准输入/输出/错误，重定向和将来的管道都只是"把某个 fd 换成别的"，
+你的程序一个字都不用改。
 
 ```
+控制台    tnd_puts tnd_putc tnd_putu tnd_putx tnd_printf
+程序环境  tnd_argc tnd_argv tnd_env
+句柄 I/O  tnd_open tnd_close tnd_read tnd_write tnd_seek
+文件系统  tnd_unlink tnd_mkdir tnd_rmdir tnd_rename tnd_stat
+目录遍历  tnd_findfirst tnd_findnext tnd_findclose
+内存时间  tnd_alloc tnd_free tnd_ticks
+便捷      tnd_getline tnd_readfile tnd_getch
+字符串    tnd_strlen tnd_strcmp tnd_stricmp tnd_memzero
+
+标志位    TND_O_RDONLY TND_O_WRONLY TND_O_RDWR TND_O_CREATE TND_O_TRUNC
+          TND_SEEK_SET TND_SEEK_CUR TND_SEEK_END
+          TND_ATTR_DIR TND_ATTR_RDONLY
+```
+
+两个约定：
+
+- `tnd_printf` 的 `\n` **自动展开成 `\r\n`**（UEFI 的 ConOut 不做换行翻译）。
+  要输出原样字节请用 `tnd_write()`。
+- `tnd_read` / `tnd_write` **会尽力读写满**，不像底层那样可能短读。
 
 ### 你只需要写 tnx_main
 
@@ -84,20 +128,18 @@ C:\>tnx MYAPP.TNX    只看信息，不执行
 ## 写一个驱动
 
 ```c
+/* mydrv.c */
+#include "drv.h"
 
-    /* mydrv.c */
-    #include "drv.h"
-    
-    EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *st) {
-        dputs(st, "[MYDRV] hello\r\n");
-        return 0;
-    }
-
+EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *st) {
+    dputs(st, "[MYDRV] hello\r\n");
+    return 0;
+}
 ```
 
-`​`​`powershell
+```powershell
 .\tools\build-drv.ps1 -Source mydrv.c -Out build\MYDRV.EFI
-`​`​`
+```
 
 把 MYDRV.EFI 放进 `\EFI\TNDOS\DRIVERS\`，然后在 `efidos.sys` 或 `config.sys` 里：
 
