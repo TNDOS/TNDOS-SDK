@@ -71,6 +71,38 @@ int tnx_main(void) {
     tnd_puts("  ticks         : "); tnd_putu(tnd_ticks());
     tnd_puts("   (0 = no timer subsystem yet)\r\n");
 
+
+    /* --- 7) 批量原语（API v2.4）
+     * 画一块、填一块、滚一下，然后**擦干净** —— 目的是证明这条路真的通，
+     * 而不是只证明它能编译。擦掉是因为这是启动自检，不该在屏幕上留痕迹。 */
+    {
+        TND_SCREEN sc;
+        TND_CELL  row[40];
+        int i;
+
+        tnd_screen(&sc);
+        tnd_puts("  [screen]      ");
+        tnd_putu((tnd_u64)sc.Cols); tnd_puts("x"); tnd_putu((tnd_u64)sc.Rows);
+        tnd_puts("  cursor ("); tnd_putu((tnd_u64)sc.X); tnd_puts(",");
+        tnd_putu((tnd_u64)sc.Y); tnd_puts(")  attr 0x"); tnd_putx((tnd_u64)sc.Attr);
+        tnd_puts("\r\n");
+
+        if (sc.Cols < 44 || sc.Rows < 8) {
+            tnd_puts("  [batch]       screen too small to test      SKIP\r\n");
+        } else {
+            for (i = 0; i < 40; i++) {
+                row[i].Ch   = (tnd_u32)'#';
+                row[i].Attr = (tnd_u32)TND_ATTR(TND_YELLOW, TND_BLUE);
+            }
+            tnd_write_cells(2, 2, 40, 1, row, 40);                                /* 批量写 */
+            tnd_fill(2, 3, 40, 2, 0xB0, TND_ATTR(TND_LIGHTGRAY, TND_BLUE));        /* 区域填充 */
+            tnd_scroll(2, 2, 40, 3, 1, ' ', TND_ATTR(TND_LIGHTGRAY, TND_BLACK));  /* 区域滚动 */
+            tnd_write_cells(2, 2, 40, 1, row, 40);
+            tnd_fill(2, 2, 40, 3, ' ', TND_ATTR(TND_LIGHTGRAY, TND_BLACK));        /* 擦掉 */
+            tnd_puts("  [batch]       write_cells / fill / scroll   OK\r\n");
+        }
+    }
+
     tnd_puts("  returning 0\r\n\r\n");
     return 0;
 }

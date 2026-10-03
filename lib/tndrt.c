@@ -135,6 +135,33 @@ void tnd_setattr(int attr)      { if (gApi->setattr) gApi->setattr(attr); }
 int  tnd_getattr(void)          { return gApi->getattr ? gApi->getattr() : 0x07; }
 void tnd_cursor(int visible)    { if (gApi->cursor) gApi->cursor(visible); }
 
+/* ------------------------------------------------------ 批量原语（v2.4）
+ * 这几个是给"全屏程序"用的：一次调用改一块矩形，而不是几千次逐格调用。
+ * 全部对老内核安全 —— 字段不在就静默不动（StructSize 保证读不到野指针）。 */
+void tnd_write_cells(int x, int y, int w, int h, const TND_CELL *cells, int stride) {
+    if (gApi->writecells) gApi->writecells(x, y, w, h, cells, stride);
+}
+
+void tnd_fill(int x, int y, int w, int h, int ch, int attr) {
+    if (gApi->fill) gApi->fill(x, y, w, h, ch, attr);
+}
+
+void tnd_scroll(int x, int y, int w, int h, int dy, int ch, int attr) {
+    if (gApi->scroll) gApi->scroll(x, y, w, h, dy, ch, attr);
+}
+
+void tnd_screen(TND_SCREEN *out) {
+    if (!out) return;
+    /* 先把结构填成"安全但无用"的值，老内核下调用方也能安全读 */
+    out->StructSize    = (tnd_u32)sizeof(TND_SCREEN);
+    out->X = out->Y = 0;
+    out->Cols = out->Rows = 0;
+    out->Attr = 0x07;
+    out->CursorVisible = 0;
+    out->Reserved = 0;
+    if (gApi->screen) gApi->screen(out);
+}
+
 /* ------------------------------------------------------------ 内存/时间 */
 void   *tnd_alloc(tnd_size n) { return gApi->alloc(n); }
 void    tnd_free(void *p)     { gApi->free(p); }
