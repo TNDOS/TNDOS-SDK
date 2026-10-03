@@ -121,6 +121,20 @@ int tnx_main(void) {
         }
     }
 
+    /* --- 宽字符排版（布局那一半）---
+     * 这里**故意**还没有 CJK 点阵字体，所以中文会画成占位框。
+     * 但要看的不是"画得好不好看"，而是**占了几格**：
+     * 方框应当两格宽（左半+右半），整行对齐不能被撑歪。
+     * 字形到位之前先把排版做对，接口就不用再动。 */
+    tnd_puts("  [wide]        ");
+    tnd_puts("\xE4\xB8\xAD\xE6\x96\x87");   /* UTF-8: 中文 */
+    tnd_puts(" = 4 cells (2 wide chars); A = 1 cell\n");
+    tnd_puts("  [wide]        |A");
+    tnd_puts("\xE4\xB8\xAD");
+    tnd_puts("B");
+    tnd_puts("\xE6\x96\x87");
+    tnd_puts("C|  <- the bars line up if widths are right\n");
+
     /* --- 时间 --- */
     tnd_printf("  ticks         : %u   (0 = no timer subsystem yet)\n", tnd_ticks());
 
